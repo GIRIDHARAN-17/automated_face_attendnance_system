@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: face-attendance-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME:-face_attendance}
+      - CONFIDENCE_THRESHOLD=${CONFIDENCE_THRESHOLD:-0.7}
+      - FRAMES_FOR_ATTENDANCE=${FRAMES_FOR_ATTENDANCE:-5}
+      - ATTENDANCE_WINDOW_SECONDS=${ATTENDANCE_WINDOW_SECONDS:-10}
+      - LATE_ARRIVAL_THRESHOLD_HOURS=${LATE_ARRIVAL_THRESHOLD_HOURS:-9}
+    volumes:
+      - ./backend/models:/app/models
+    restart: unless-stopped
+    networks:
+      - face-attendance-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: face-attendance-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - face-attendance-network
+
+networks:
+  face-attendance-network:
+    driver: bridge
+
+
+
+
+
