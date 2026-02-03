@@ -14,7 +14,13 @@ async def get_today_attendance(db: AsyncIOMotorDatabase = Depends(get_database))
     today = date.today()
     
     # Get attendance records
-    attendance_records = await db.attendance.find({"date": today}).to_list(None)
+    start = datetime.combine(today, datetime.min.time())
+    end = datetime.combine(today, datetime.max.time())
+
+    attendance_records = await db.attendance.find({
+    "date": {"$gte": start, "$lte": end}
+        }).to_list(None)
+
     
     # Get student names
     student_ids = [r["student_id"] for r in attendance_records]
@@ -24,15 +30,19 @@ async def get_today_attendance(db: AsyncIOMotorDatabase = Depends(get_database))
     # Format response
     results = []
     for record in attendance_records:
+        record_date = record.get("date")
+        if isinstance(record_date, datetime):
+            record_date = record_date.date()
+
         results.append(AttendanceResponse(
-            student_id=record["student_id"],
-            date=record["date"],
-            status=record["status"],
-            timestamp=record["timestamp"],
+            student_id=record.get("student_id"),
+            date=record_date,
+            status=record.get("status", "absent"),
+            timestamp=record.get("timestamp", datetime.utcnow()),
             confidence=record.get("confidence"),
-            student_name=student_map.get(record["student_id"])
-        ))
-    
+            student_name=student_map.get(record.get("student_id"))
+            ))
+
     return results
 
 
@@ -52,9 +62,11 @@ async def get_attendance_history(
     if start_date or end_date:
         query["date"] = {}
         if start_date:
-            query["date"]["$gte"] = start_date
+            query["date"]["$gte"] = datetime.combine(start_date, datetime.min.time())
+
         if end_date:
-            query["date"]["$lte"] = end_date
+            query["date"]["$lte"] = datetime.combine(end_date, datetime.max.time())
+
     
     # Get attendance records
     attendance_records = await db.attendance.find(query).sort("date", -1).to_list(1000)
